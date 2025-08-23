@@ -15,7 +15,7 @@ class AuthenticationService: NSObject, ObservableObject {
     private var modelContext: ModelContext?
     private var authorizationController: ASAuthorizationController?
     
-    private init() {}
+    private override init() {}
     
     func configure(modelContext: ModelContext) {
         self.modelContext = modelContext
