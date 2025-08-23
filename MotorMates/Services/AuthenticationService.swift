@@ -6,13 +6,14 @@ import AuthenticationServices
 import CryptoKit
 
 @MainActor
-class AuthenticationService: ObservableObject {
+class AuthenticationService: NSObject, ObservableObject {
     static let shared = AuthenticationService()
     
     @Published var authState: AuthenticationState = .unauthenticated
     @Published var currentUser: UserProfile?
     
     private var modelContext: ModelContext?
+    private var authorizationController: ASAuthorizationController?
     
     private init() {}
     
@@ -22,39 +23,21 @@ class AuthenticationService: ObservableObject {
     }
     
     // MARK: - Apple Sign-In
-    func signInWithApple() async {
+    func signInWithApple() {
         authState = .authenticating
         
-        do {
-            let request = ASAuthorizationAppleIDProvider().createRequest()
-            request.requestedScopes = [.fullName, .email]
-            
-            let authController = ASAuthorizationController(authorizationRequests: [request])
-            
-            // For now, simulate Apple Sign-In success
-            // In production, you would handle the actual Apple Sign-In flow
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            
-            // Simulate successful Apple Sign-In
-            let appleUser = UserProfile(
-                email: "user@privaterelay.appleid.com",
-                name: "Apple User",
-                authProvider: .apple,
-                providerUserId: "apple_user_123"
-            )
-            
-            // Save to local storage
-            modelContext?.insert(appleUser)
-            try modelContext?.save()
-            
-            // Store session
-            UserDefaults.standard.set(appleUser.email, forKey: "currentUserEmail")
-            
-            currentUser = appleUser
-            authState = .authenticated(appleUser)
-            
-        } catch {
-            authState = .error("Apple Sign-In failed: \(error.localizedDescription)")
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        
+        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
+        authorizationController.delegate = self
+        authorizationController.presentationContextProvider = self
+        
+        // Store controller to prevent deallocation
+        self.authorizationController = authorizationController
+        
+        DispatchQueue.main.async {
+            authorizationController.performRequests()
         }
     }
     
@@ -254,6 +237,85 @@ class AuthenticationService: ObservableObject {
             print("Failed to fetch user: \(error)")
             return nil
         }
+    }
+}
+
+// MARK: - Apple Sign-In Delegate Methods
+extension AuthenticationService: ASAuthorizationControllerDelegate {
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            authState = .error("Failed to get Apple ID credential")
+            return
+        }
+        
+        // Get user information
+        let userID = appleIDCredential.user
+        let email = appleIDCredential.email ?? "user@privaterelay.appleid.com"
+        let fullName = appleIDCredential.fullName
+        
+        // Create display name
+        var displayName = "Apple User"
+        if let firstName = fullName?.givenName, let lastName = fullName?.familyName {
+            displayName = "\(firstName) \(lastName)"
+        } else if let firstName = fullName?.givenName {
+            displayName = firstName
+        }
+        
+        // Create user profile
+        let appleUser = UserProfile(
+            email: email,
+            name: displayName,
+            authProvider: .apple,
+            providerUserId: userID
+        )
+        appleUser.emailVerified = true
+        
+        do {
+            // Save to local storage
+            modelContext?.insert(appleUser)
+            try modelContext?.save()
+            
+            // Store session
+            UserDefaults.standard.set(appleUser.email, forKey: "currentUserEmail")
+            
+            currentUser = appleUser
+            authState = .authenticated(appleUser)
+            
+        } catch {
+            authState = .error("Failed to save Apple Sign-In user: \(error.localizedDescription)")
+        }
+    }
+    
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        let authError = error as? ASAuthorizationError
+        
+        switch authError?.code {
+        case .canceled:
+            authState = .unauthenticated
+        case .failed:
+            authState = .error("Apple Sign-In failed")
+        case .invalidResponse:
+            authState = .error("Invalid response from Apple")
+        case .notHandled:
+            authState = .error("Apple Sign-In not handled")
+        case .unknown:
+            authState = .error("Unknown Apple Sign-In error")
+        default:
+            authState = .error("Apple Sign-In error: \(error.localizedDescription)")
+        }
+    }
+}
+
+// MARK: - Apple Sign-In Presentation Context
+extension AuthenticationService: ASAuthorizationControllerPresentationContextProviding {
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first,
+              let window = windowScene.windows.first else {
+            fatalError("No window available for Apple Sign-In")
+        }
+        return window
     }
 }
 

@@ -103,9 +103,7 @@ struct AuthenticationView: View {
                         VStack(spacing: 12) {
                             // Apple Sign-In Button
                             Button(action: {
-                                Task {
-                                    await authService.signInWithApple()
-                                }
+                                authService.signInWithApple()
                             }) {
                                 HStack {
                                     Image(systemName: "applelogo")
