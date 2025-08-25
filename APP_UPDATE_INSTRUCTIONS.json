@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "release_notes": "Initial MotorMates release with server connectivity",
+  "update_url": "https://github.com/nakulb23/MotorMates",
+  "mandatory": false,
+  "server_info": {
+    "base_url": "https://golfai.duckdns.org:8443/motormates",
+    "endpoints": {
+      "health": "/motormates/health",
+      "auth": "/motormates/auth",
+      "posts": "/motormates/posts",
+      "routes": "/motormates/routes",
+      "garage": "/motormates/garage",
+      "users": "/motormates/users",
+      "app_updates": "/motormates/app-updates"
+    }
+  },
+  "instructions": [
+    "Step 1: Update iOS App Configuration",
+    "- Open your MotorMates iOS project in Xcode",
+    "- Navigate to your API configuration file",
+    "- Update the base URL to: https://golfai.duckdns.org:8443/motormates",
+    "- This uses the same server as GolfSwingAI",
+    "",
+    "Step 2: Handle SSL Certificate",
+    "- For development, allow arbitrary loads in Info.plist",
+    "- Add NSAppTransportSecurity exception for your server",
+    "- Or install the SSL certificate on your iOS device",
+    "",
+    "Step 3: Test Connection",
+    "- Build and run the app",
+    "- Test the connection using the /motormates/test-ios endpoint",
+    "- Verify you receive: 'MotorMates server is connected!'",
+    "",
+    "Step 4: Implement Authentication",
+    "- Use /motormates/auth/register for new users",
+    "- Use /motormates/auth/login for existing users",
+    "- Store the returned JWT token for authenticated requests",
+    "",
+    "Step 5: Core Features",
+    "- Posts: Create and view automotive content",
+    "- Routes: Share and discover driving routes",
+    "- Garage: Manage your car collection",
+    "",
+    "Step 6: GitHub Updates",
+    "- Push code changes to: https://github.com/nakulb23/MotorMates",
+    "- Tag releases with semantic versioning (e.g., v1.0.0)",
+    "- Update this file for new app versions"
+  ],
+  "ios_config_example": {
+    "comment": "Add this to your iOS app configuration",
+    "baseURL": "https://golfai.duckdns.org:8443/motormates",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    }
+  }
+}
